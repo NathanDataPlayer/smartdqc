@@ -1,5 +1,6 @@
 const pages = Array.from(document.querySelectorAll('.page'))
 const navItems = Array.from(document.querySelectorAll('.nav-item'))
+const API = 'http://localhost:8088'
 navItems.forEach(btn => btn.addEventListener('click', () => {
   navItems.forEach(b => b.classList.remove('active'))
   btn.classList.add('active')
@@ -20,6 +21,7 @@ document.getElementById('prevStep').addEventListener('click', () => {
 })
 document.getElementById('nextStep').addEventListener('click', () => {
   step(1)
+  if (currentStep === 3) submitRule()
 })
 
 let currentStep = 0
@@ -99,3 +101,91 @@ document.getElementById('theme').addEventListener('change', (e) => {
     : ''
 })
 
+initData()
+
+async function initData() {
+  try {
+    const ov = await fetch(API + '/api/overview').then(r=>r.json())
+    const kpis = document.querySelectorAll('.kpi')
+    kpis[0].querySelector('.kpi-value').textContent = ov.ruleCount
+    kpis[1].querySelector('.kpi-value').textContent = ov.alerts24h
+    kpis[2].querySelector('.kpi-value').textContent = ov.slaIndex + '%'
+    kpis[3].querySelector('.kpi-value').textContent = ov.compliance
+  } catch(e) {}
+  try {
+    const rs = await fetch(API + '/api/rules').then(r=>r.json())
+    renderRules(rs)
+  } catch(e) {}
+  try {
+    const ts = await fetch(API + '/api/tables').then(r=>r.json())
+    renderTables(ts)
+  } catch(e) {}
+  try {
+    const as = await fetch(API + '/api/alerts').then(r=>r.json())
+    renderAlerts(as)
+  } catch(e) {}
+}
+
+function renderRules(list){
+  const wrap = document.querySelector('#rules .table')
+  wrap.innerHTML = ''
+  const head = document.createElement('div')
+  head.className = 't-head'
+  head.innerHTML = '<span>规则名</span><span>目标表</span><span>类型</span><span>状态</span><span>最近执行</span>'
+  wrap.appendChild(head)
+  list.forEach(x=>{
+    const row = document.createElement('div')
+    row.className = 't-row'
+    const st = x.status === 'enabled' ? 'ok' : x.status === 'paused' ? 'paused' : ''
+    row.innerHTML = `<span>${x.name}</span><span>${x.table}</span><span>${x.type}</span><span class="${st}">${x.status==='enabled'?'启用':x.status}</span><span>${x.lastRun||''}</span>`
+    wrap.appendChild(row)
+  })
+}
+
+function renderTables(list){
+  const wrap = document.querySelector('#tables .table')
+  wrap.innerHTML = ''
+  const head = document.createElement('div')
+  head.className = 't-head'
+  head.innerHTML = '<span>库名</span><span>表名</span><span>分区</span><span>规则数</span><span>健康度</span>'
+  wrap.appendChild(head)
+  list.forEach(x=>{
+    const row = document.createElement('div')
+    row.className = 't-row'
+    const st = x.health==='良好'?'ok':'warn'
+    row.innerHTML = `<span>${x.db}</span><span>${x.name}</span><span>${x.partition}</span><span>${x.ruleCount}</span><span class="${st}">${x.health}</span>`
+    wrap.appendChild(row)
+  })
+}
+
+function renderAlerts(list){
+  const wrap1 = document.querySelector('#overview .list')
+  const wrap2 = document.querySelector('#alerts .list')
+  wrap1.innerHTML = ''
+  wrap2.innerHTML = ''
+  list.slice(0,3).forEach(x=>{
+    const li = document.createElement('li')
+    const b = x.level==='danger'?'danger':x.level==='warn'?'warn':'info'
+    li.innerHTML = `<span class="badge ${b}">${x.level==='danger'?'严重':x.level==='warn'?'告警':'提示'}</span>${x.message}<span class="time">${x.time}</span>`
+    wrap1.appendChild(li)
+  })
+  list.forEach(x=>{
+    const li = document.createElement('li')
+    const b = x.level==='danger'?'danger':x.level==='warn'?'warn':'info'
+    li.innerHTML = `<span class="badge ${b}">${x.level==='danger'?'严重':x.level==='warn'?'告警':'提示'}</span> ${x.message} <span class="time">${x.time}</span>`
+    wrap2.appendChild(li)
+  })
+}
+
+async function submitRule(){
+  const inputs = document.querySelectorAll('#ruleWizard input, #ruleWizard select')
+  const table = inputs[0].value || 'dwd.order_detail'
+  const type = inputs[1].value || '分区完整性'
+  const payload = { name: '新建规则', table, type }
+  try {
+    const r = await fetch(API + '/api/rules',{method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)}).then(r=>r.json())
+    const rs = await fetch(API + '/api/rules').then(r=>r.json())
+    renderRules(rs)
+    wizard.classList.add('hidden')
+  } catch(e) {}
+}

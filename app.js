@@ -12,6 +12,7 @@ navItems.forEach(btn => btn.addEventListener('click', () => {
 const wizard = document.getElementById('ruleWizard')
 document.getElementById('createRuleBtn').addEventListener('click', () => {
   wizard.classList.remove('hidden')
+  loadMetaDatabases()
 })
 document.getElementById('closeWizard').addEventListener('click', () => {
   wizard.classList.add('hidden')
@@ -135,6 +136,37 @@ async function initData() {
   loadPersistAlerts()
 }
 
+async function loadMetaDatabases(){
+  const dbSel = document.getElementById('dbSelect')
+  dbSel.innerHTML = ''
+  try{
+    const dbs = await fetch(API + '/api/meta/databases').then(r=>r.json())
+    dbs.forEach(d=>{ const o = document.createElement('option'); o.textContent=d; o.value=d; dbSel.appendChild(o) })
+    loadMetaTables(dbs[0])
+  }catch(e){ dbSel.innerHTML = '<option>未配置Metastore</option>' }
+  dbSel.onchange = ()=> loadMetaTables(dbSel.value)
+}
+
+async function loadMetaTables(db){
+  const tSel = document.getElementById('tableSelect')
+  tSel.innerHTML = ''
+  try{
+    const ts = await fetch(API + '/api/meta/tables?db=' + encodeURIComponent(db)).then(r=>r.json())
+    ts.forEach(t=>{ const o = document.createElement('option'); o.textContent=t; o.value=t; tSel.appendChild(o) })
+    loadMetaPartitions(db, ts[0])
+  }catch(e){ tSel.innerHTML = '<option>手动输入</option>' }
+  tSel.onchange = ()=> loadMetaPartitions(db, tSel.value)
+}
+
+async function loadMetaPartitions(db, table){
+  const pSel = document.getElementById('partitionSelect')
+  pSel.innerHTML = ''
+  try{
+    const ps = await fetch(API + '/api/meta/partitions?db=' + encodeURIComponent(db) + '&table=' + encodeURIComponent(table)).then(r=>r.json())
+    ps.forEach(p=>{ const o = document.createElement('option'); o.textContent=p.name||p.Name||p; o.value=(p.name||p.Name||p); pSel.appendChild(o) })
+  }catch(e){ pSel.innerHTML = '<option>无分区</option>' }
+}
+
 function renderRules(list){
   const wrap = document.querySelector('#rules .table')
   wrap.innerHTML = ''
@@ -215,10 +247,12 @@ function showAlertDetail(a){
 }
 
 async function submitRule(){
-  const inputs = document.querySelectorAll('#ruleWizard input, #ruleWizard select')
-  const table = inputs[0].value || 'dwd.order_detail'
-  const type = inputs[1].value || '分区完整性'
-  const payload = { name: '新建规则', table, type }
+  const db = document.getElementById('dbSelect').value
+  const table = document.getElementById('tableSelect').value
+  const partition = document.getElementById('partitionSelect').value
+  const type = document.getElementById('ruleTypeSelect').value
+  const threshold = parseFloat(document.getElementById('thresholdInput').value||'0')
+  const payload = { name: '新建规则', db, table, partition, type, threshold }
   try {
     const r = await fetch(API + '/api/rules',{method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)}).then(r=>r.json())
     const rs = await fetch(API + '/api/rules').then(r=>r.json())

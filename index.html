@@ -208,18 +208,26 @@
         </div>
         <div class="steps">
           <div class="step active">1 选择表</div>
-          <div class="step">2 字段与检查</div>
+          <div class="step">2 分区与检查</div>
           <div class="step">3 条件与阈值</div>
           <div class="step">4 告警与SLA</div>
         </div>
         <div class="wizard-body">
           <div class="wizard-row">
-            <label>库/表</label>
-            <input placeholder="如：dwd.order_detail" />
+            <label>库</label>
+            <select id="dbSelect"></select>
+          </div>
+          <div class="wizard-row">
+            <label>表</label>
+            <select id="tableSelect"></select>
+          </div>
+          <div class="wizard-row">
+            <label>分区</label>
+            <select id="partitionSelect"></select>
           </div>
           <div class="wizard-row">
             <label>规则类型</label>
-            <select>
+            <select id="ruleTypeSelect">
               <option>分区完整性</option>
               <option>空值率阈值</option>
               <option>唯一性检查</option>
@@ -228,7 +236,7 @@
           </div>
           <div class="wizard-row">
             <label>阈值</label>
-            <input type="number" placeholder="例如：2% 或 100" />
+            <input id="thresholdInput" type="number" placeholder="例如：2% 或 100" />
           </div>
           <div class="wizard-actions">
             <button class="secondary" id="prevStep">上一步</button>

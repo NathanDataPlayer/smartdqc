@@ -1,6 +1,7 @@
 package server
 
 import (
+	"dqc/internal/meta"
 	"dqc/internal/store"
 	"encoding/json"
 	"net/http"
@@ -23,12 +24,15 @@ var tables = []Table{
 }
 
 type Rule struct {
-	ID      int    `json:"id"`
-	Name    string `json:"name"`
-	Table   string `json:"table"`
-	Type    string `json:"type"`
-	Status  string `json:"status"`
-	LastRun string `json:"lastRun"`
+	ID        int     `json:"id"`
+	Name      string  `json:"name"`
+	Table     string  `json:"table"`
+	Type      string  `json:"type"`
+	Status    string  `json:"status"`
+	LastRun   string  `json:"lastRun"`
+	DB        string  `json:"db"`
+	Partition string  `json:"partition"`
+	Threshold float64 `json:"threshold"`
 }
 
 type Alert struct {
@@ -93,12 +97,48 @@ func Start() {
 		if r.Method == http.MethodPost {
 			var in Rule
 			json.NewDecoder(r.Body).Decode(&in)
-			out, err := store.CreateRule(store.Rule{Name: in.Name, Table: in.Table, Type: in.Type, Status: "enabled", LastRun: time.Now().Format("15:04")})
+			// basic validation via metastore if configured
+			if in.DB != "" && in.Table != "" {
+				if hc, err := meta.New(); err == nil {
+					defer hc.Close()
+					ts, _ := hc.Tables(in.DB)
+					found := false
+					for _, t := range ts {
+						if t == in.Table {
+							found = true
+							break
+						}
+					}
+					if !found {
+						w.WriteHeader(http.StatusBadRequest)
+						return
+					}
+					if in.Partition != "" {
+						ps, _ := hc.Partitions(in.DB, in.Table)
+						pf := false
+						for _, p := range ps {
+							if p.Name == in.Partition {
+								pf = true
+								break
+							}
+						}
+						if !pf {
+							w.WriteHeader(http.StatusBadRequest)
+							return
+						}
+					}
+				}
+			}
+			var thr = store.NullFloat64FromFloat(in.Threshold)
+			if in.Threshold == 0 {
+				thr.Valid = false
+			}
+			out, err := store.CreateRule(store.Rule{Name: in.Name, Table: in.Table, Type: in.Type, Status: "enabled", LastRun: time.Now().Format("15:04"), DB: in.DB, Partition: in.Partition, Threshold: thr})
 			if err != nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				return
 			}
-			jsonResp(w, Rule{ID: out.ID, Name: out.Name, Table: out.Table, Type: out.Type, Status: out.Status, LastRun: out.LastRun})
+			jsonResp(w, Rule{ID: out.ID, Name: out.Name, Table: out.Table, Type: out.Type, Status: out.Status, LastRun: out.LastRun, DB: out.DB, Partition: out.Partition, Threshold: out.Threshold.Float64})
 			return
 		}
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -109,12 +149,16 @@ func Start() {
 		if r.Method == http.MethodPut {
 			var in Rule
 			json.NewDecoder(r.Body).Decode(&in)
-			out, err := store.UpdateRule(id, store.Rule{Name: in.Name, Table: in.Table, Type: in.Type, Status: in.Status})
+			var thr2 = store.NullFloat64FromFloat(in.Threshold)
+			if in.Threshold == 0 {
+				thr2.Valid = false
+			}
+			out, err := store.UpdateRule(id, store.Rule{Name: in.Name, Table: in.Table, Type: in.Type, Status: in.Status, DB: in.DB, Partition: in.Partition, Threshold: thr2})
 			if err != nil {
 				w.WriteHeader(http.StatusNotFound)
 				return
 			}
-			jsonResp(w, Rule{ID: out.ID, Name: out.Name, Table: out.Table, Type: out.Type, Status: out.Status, LastRun: out.LastRun})
+			jsonResp(w, Rule{ID: out.ID, Name: out.Name, Table: out.Table, Type: out.Type, Status: out.Status, LastRun: out.LastRun, DB: out.DB, Partition: out.Partition, Threshold: out.Threshold.Float64})
 			return
 		}
 		if r.Method == http.MethodDelete {
@@ -142,3 +186,5 @@ func choose(a, b string) string {
 	}
 	return b
 }
+
+// no helper needed; use store.NullFloat64FromFloat

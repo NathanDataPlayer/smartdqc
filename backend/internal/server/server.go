@@ -128,6 +128,8 @@ func Start() {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	})
 	mux.HandleFunc("/api/alerts", func(w http.ResponseWriter, r *http.Request) { jsonResp(w, alerts) })
+	registerMetaHandlers(mux)
+	registerAlertHandlers(mux)
 	mux.HandleFunc("/api/tables", func(w http.ResponseWriter, r *http.Request) { jsonResp(w, tables) })
 
 	h := cors(mux)

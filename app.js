@@ -23,6 +23,14 @@ document.getElementById('nextStep').addEventListener('click', () => {
   step(1)
   if (currentStep === 3) submitRule()
 })
+document.getElementById('refreshAlerts').addEventListener('click', loadPersistAlerts)
+document.getElementById('seedAlert').addEventListener('click', async () => {
+  await fetch(API + '/api/alerts/persist', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({level:'warn', message:'demo: dwd.order_detail 空值率 > 2%'})})
+  loadPersistAlerts()
+})
+document.getElementById('closeAlert').addEventListener('click', () => {
+  document.getElementById('alertDetail').classList.add('hidden')
+})
 
 let currentStep = 0
 function step(delta) {
@@ -124,6 +132,7 @@ async function initData() {
     const as = await fetch(API + '/api/alerts').then(r=>r.json())
     renderAlerts(as)
   } catch(e) {}
+  loadPersistAlerts()
 }
 
 function renderRules(list){
@@ -160,7 +169,7 @@ function renderTables(list){
 
 function renderAlerts(list){
   const wrap1 = document.querySelector('#overview .list')
-  const wrap2 = document.querySelector('#alerts .list')
+  const wrap2 = document.querySelector('#alertsList')
   wrap1.innerHTML = ''
   wrap2.innerHTML = ''
   list.slice(0,3).forEach(x=>{
@@ -172,9 +181,37 @@ function renderAlerts(list){
   list.forEach(x=>{
     const li = document.createElement('li')
     const b = x.level==='danger'?'danger':x.level==='warn'?'warn':'info'
-    li.innerHTML = `<span class="badge ${b}">${x.level==='danger'?'严重':x.level==='warn'?'告警':'提示'}</span> ${x.message} <span class="time">${x.time}</span>`
+    li.innerHTML = `<span class="badge ${b}">${x.level==='danger'?'严重':x.level==='warn'?'告警':'提示'}</span> ${x.message} <span class="time">${x.time||''}</span>`
     wrap2.appendChild(li)
   })
+}
+
+async function loadPersistAlerts(){
+  try {
+    const list = await fetch(API + '/api/alerts/persist').then(r=>r.json())
+    const wrap = document.querySelector('#alertsList')
+    wrap.innerHTML = ''
+    list.forEach(x=>{
+      const li = document.createElement('li')
+      const b = x.level==='danger'?'danger':x.level==='warn'?'warn':'info'
+      const st = x.status==='ack'?'<span style="color:#9cc3ff">(已确认)</span>':''
+      li.innerHTML = `<span class="badge ${b}">${x.level==='danger'?'严重':x.level==='warn'?'告警':'提示'}</span> ${x.message} ${st} <span class="time">${new Date(x.createdAt).toLocaleString()}</span>`
+      li.addEventListener('click', ()=>showAlertDetail(x))
+      wrap.appendChild(li)
+    })
+  } catch(e) {}
+}
+
+function showAlertDetail(a){
+  const modal = document.getElementById('alertDetail')
+  modal.classList.remove('hidden')
+  document.getElementById('alertText').textContent = `[${a.level}] ${a.message}`
+  const ackBtn = document.getElementById('ackAlert')
+  ackBtn.onclick = async () => {
+    await fetch(API + '/api/alerts/ack/' + a.id)
+    modal.classList.add('hidden')
+    loadPersistAlerts()
+  }
 }
 
 async function submitRule(){

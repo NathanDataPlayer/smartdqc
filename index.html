@@ -141,11 +141,11 @@
       <section id="alerts" class="page hidden">
         <div class="card glass">
           <div class="card-title">告警中心</div>
-          <ul class="list">
-            <li><span class="badge danger">严重</span> SLA 违约：dwd.order_detail 延迟 45min <span class="time">2分钟前</span></li>
-            <li><span class="badge warn">告警</span> 空值率超阈：ods.user_event null_rate=2.3% <span class="time">12分钟前</span></li>
-            <li><span class="badge info">提示</span> 分区异常：dim.product dt 缺失 <span class="time">1小时前</span></li>
-          </ul>
+          <ul class="list" id="alertsList"></ul>
+          <div style="margin-top:10px; display:flex; gap:8px;">
+            <button class="secondary" id="refreshAlerts">刷新</button>
+            <button class="primary" id="seedAlert">注入测试告警</button>
+          </div>
         </div>
       </section>
 
@@ -233,6 +233,21 @@
           <div class="wizard-actions">
             <button class="secondary" id="prevStep">上一步</button>
             <button class="primary" id="nextStep">下一步</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="alertDetail" class="modal hidden">
+      <div class="modal-content glass">
+        <div class="modal-header">
+          <div class="title">告警详情</div>
+          <button class="icon-btn" id="closeAlert">✕</button>
+        </div>
+        <div class="wizard-body">
+          <div id="alertText" style="color:#e6f1ff"></div>
+          <div class="wizard-actions">
+            <button class="primary" id="ackAlert">确认/ACK</button>
           </div>
         </div>
       </div>

@@ -39,6 +39,7 @@ func Init() error {
         last_run VARCHAR(64) NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`)
     if err != nil { return err }
+    if err = initAlertSchema(); err != nil { return err }
     return nil
 }
 
@@ -100,4 +101,3 @@ func EnsureSeed() {
         CreateRule(Rule{Name:"唯一性检查", Table:"dim.product", Type:"unique", Status:"paused"})
     }
 }
-

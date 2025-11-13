@@ -1,17 +1,14 @@
 package server
 
 import (
+	"dqc/internal/store"
 	"encoding/json"
 	"net/http"
 	"strconv"
 	"time"
 )
 
-var rules = []Rule{
-	{ID: 1, Name: "分区完整性检查", Table: "ods.user_event", Type: "partition", Status: "enabled", LastRun: "09:20"},
-	{ID: 2, Name: "空值率阈值", Table: "dwd.order_detail", Type: "null_rate", Status: "enabled", LastRun: "09:10"},
-	{ID: 3, Name: "唯一性检查", Table: "dim.product", Type: "unique", Status: "paused", LastRun: "昨天"},
-}
+var rules = []Rule{}
 
 var alerts = []Alert{
 	{Level: "danger", Message: "SLA 违约：dwd.order_detail 延迟 45min", Time: "2分钟前"},
@@ -49,10 +46,10 @@ type Table struct {
 }
 
 type Overview struct {
-	RuleCount   int    `json:"ruleCount"`
-	Alerts24h   int    `json:"alerts24h"`
-	SLAIndex    int    `json:"slaIndex"`
-	Compliance  string `json:"compliance"`
+	RuleCount  int    `json:"ruleCount"`
+	Alerts24h  int    `json:"alerts24h"`
+	SLAIndex   int    `json:"slaIndex"`
+	Compliance string `json:"compliance"`
 }
 
 func jsonResp(w http.ResponseWriter, v interface{}) {
@@ -74,21 +71,34 @@ func cors(h http.Handler) http.Handler {
 }
 
 func Start() {
+	if err := store.Init(); err == nil {
+		store.EnsureSeed()
+	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) { jsonResp(w, map[string]string{"status": "ok"}) })
 	mux.HandleFunc("/api/overview", func(w http.ResponseWriter, r *http.Request) {
-		jsonResp(w, Overview{RuleCount: len(rules), Alerts24h: 12, SLAIndex: 97, Compliance: "99.2%"})
+		rs, _ := store.ListRules()
+		jsonResp(w, Overview{RuleCount: len(rs), Alerts24h: 12, SLAIndex: 97, Compliance: "99.2%"})
 	})
 	mux.HandleFunc("/api/rules", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodGet { jsonResp(w, rules); return }
+		if r.Method == http.MethodGet {
+			rs, err := store.ListRules()
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			jsonResp(w, rs)
+			return
+		}
 		if r.Method == http.MethodPost {
 			var in Rule
 			json.NewDecoder(r.Body).Decode(&in)
-			in.ID = nextID()
-			in.Status = "enabled"
-			in.LastRun = time.Now().Format("15:04")
-			rules = append(rules, in)
-			jsonResp(w, in)
+			out, err := store.CreateRule(store.Rule{Name: in.Name, Table: in.Table, Type: in.Type, Status: "enabled", LastRun: time.Now().Format("15:04")})
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			jsonResp(w, Rule{ID: out.ID, Name: out.Name, Table: out.Table, Type: out.Type, Status: out.Status, LastRun: out.LastRun})
 			return
 		}
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -96,25 +106,26 @@ func Start() {
 	mux.HandleFunc("/api/rules/", func(w http.ResponseWriter, r *http.Request) {
 		idStr := r.URL.Path[len("/api/rules/"):]
 		id, _ := strconv.Atoi(idStr)
-		for i := range rules {
-			if rules[i].ID == id {
-				if r.Method == http.MethodPut {
-					var in Rule
-					json.NewDecoder(r.Body).Decode(&in)
-					rules[i].Name = choose(in.Name, rules[i].Name)
-					rules[i].Type = choose(in.Type, rules[i].Type)
-					rules[i].Status = choose(in.Status, rules[i].Status)
-					jsonResp(w, rules[i])
-					return
-				}
-				if r.Method == http.MethodDelete {
-					rules = append(rules[:i], rules[i+1:]...)
-					w.WriteHeader(http.StatusNoContent)
-					return
-				}
+		if r.Method == http.MethodPut {
+			var in Rule
+			json.NewDecoder(r.Body).Decode(&in)
+			out, err := store.UpdateRule(id, store.Rule{Name: in.Name, Table: in.Table, Type: in.Type, Status: in.Status})
+			if err != nil {
+				w.WriteHeader(http.StatusNotFound)
+				return
 			}
+			jsonResp(w, Rule{ID: out.ID, Name: out.Name, Table: out.Table, Type: out.Type, Status: out.Status, LastRun: out.LastRun})
+			return
 		}
-		w.WriteHeader(http.StatusNotFound)
+		if r.Method == http.MethodDelete {
+			if err := store.DeleteRule(id); err != nil {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		w.WriteHeader(http.StatusMethodNotAllowed)
 	})
 	mux.HandleFunc("/api/alerts", func(w http.ResponseWriter, r *http.Request) { jsonResp(w, alerts) })
 	mux.HandleFunc("/api/tables", func(w http.ResponseWriter, r *http.Request) { jsonResp(w, tables) })
@@ -123,11 +134,9 @@ func Start() {
 	http.ListenAndServe(":8088", h)
 }
 
-func nextID() int {
-	id := 1
-	for _, r := range rules { if r.ID >= id { id = r.ID + 1 } }
-	return id
+func choose(a, b string) string {
+	if a != "" {
+		return a
+	}
+	return b
 }
-
-func choose(a, b string) string { if a != "" { return a }; return b }
-

@@ -1,0 +1,16 @@
+.DS_Store
+.trae/
+.vscode/
+.idea/
+node_modules/
+dist/
+coverage/
+bin/
+build/
+tmp/
+.env
+.env.*
+*.log
+vendor/
+*.db
+*.sqlite

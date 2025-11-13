@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DQC 数据质量平台 · 原型</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <aside class="sidebar glass">
+      <div class="brand">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+          <path d="M12 2l9 5v10l-9 5-9-5V7l9-5z" stroke="url(#g)" stroke-width="1.5" fill="rgba(0,229,255,0.08)"/>
+          <defs>
+            <linearGradient id="g" x1="0" y1="0" x2="24" y2="24">
+              <stop stop-color="#00E5FF"/>
+              <stop offset="1" stop-color="#7C4DFF"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        <span>DQC</span>
+      </div>
+      <nav>
+        <button class="nav-item active" data-target="overview">概览</button>
+        <button class="nav-item" data-target="rules">规则配置</button>
+        <button class="nav-item" data-target="tables">表管理</button>
+        <button class="nav-item" data-target="alerts">告警中心</button>
+        <button class="nav-item" data-target="sla">时效监控</button>
+        <button class="nav-item" data-target="settings">系统设置</button>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="theme-toggle">
+          <input type="checkbox" id="theme" />
+          <label for="theme">霓虹主题</label>
+        </div>
+      </div>
+    </aside>
+
+    <main class="content">
+      <header class="topbar glass">
+        <div class="search">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M11 4a7 7 0 105.293 12.293l3.707 3.707 1.414-1.414-3.707-3.707A7 7 0 0011 4z" stroke="#9CC3FF" stroke-width="1.5"/></svg>
+          <input placeholder="搜索 Hive 表 / 规则 / 告警" />
+        </div>
+        <div class="actions">
+          <button class="primary" id="createRuleBtn">新建规则</button>
+          <div class="user">
+            <img src="https://api.dicebear.com/7.x/identicon/svg?seed=dqc" alt="avatar" />
+            <span>data.ops</span>
+          </div>
+        </div>
+      </header>
+
+      <section id="overview" class="page">
+        <div class="grid">
+          <div class="card kpi glass">
+            <div class="kpi-title">规则总数</div>
+            <div class="kpi-value">128</div>
+            <canvas class="mini-chart" width="160" height="60"></canvas>
+          </div>
+          <div class="card kpi glass">
+            <div class="kpi-title">近24小时告警</div>
+            <div class="kpi-value warning">12</div>
+            <canvas class="mini-chart" width="160" height="60"></canvas>
+          </div>
+          <div class="card kpi glass">
+            <div class="kpi-title">时效指数</div>
+            <div class="kpi-value good">97%</div>
+            <canvas class="mini-chart" width="160" height="60"></canvas>
+          </div>
+          <div class="card kpi glass">
+            <div class="kpi-title">合规率</div>
+            <div class="kpi-value">99.2%</div>
+            <canvas class="mini-chart" width="160" height="60"></canvas>
+          </div>
+        </div>
+
+        <div class="grid two-cols">
+          <div class="card glass">
+            <div class="card-title">数据质量趋势</div>
+            <canvas id="qualityChart" width="720" height="260"></canvas>
+          </div>
+          <div class="card glass">
+            <div class="card-title">最近告警</div>
+            <ul class="list">
+              <li>
+                <span class="badge danger">严重</span>
+                ods.user_event 分区缺失: dt=2025-11-11
+                <span class="time">5分钟前</span>
+              </li>
+              <li>
+                <span class="badge warn">告警</span>
+                dwd.order_detail 空值率上升 > 2%
+                <span class="time">28分钟前</span>
+              </li>
+              <li>
+                <span class="badge info">提示</span>
+                dim.product 维表更新延迟 15min
+                <span class="time">1小时前</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="rules" class="page hidden">
+        <div class="card glass">
+          <div class="card-title">规则列表</div>
+          <div class="table">
+            <div class="t-head">
+              <span>规则名</span><span>目标表</span><span>类型</span><span>状态</span><span>最近执行</span>
+            </div>
+            <div class="t-row">
+              <span>分区完整性检查</span><span>ods.user_event</span><span>分区</span><span class="ok">启用</span><span>09:20</span>
+            </div>
+            <div class="t-row">
+              <span>空值率阈值</span><span>dwd.order_detail</span><span>字段</span><span class="ok">启用</span><span>09:10</span>
+            </div>
+            <div class="t-row">
+              <span>唯一键重复检查</span><span>dim.product</span><span>唯一性</span><span class="paused">暂停</span><span>昨天</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="tables" class="page hidden">
+        <div class="card glass">
+          <div class="card-title">Hive 表导航</div>
+          <div class="table">
+            <div class="t-head"><span>库名</span><span>表名</span><span>分区</span><span>规则数</span><span>健康度</span></div>
+            <div class="t-row"><span>ods</span><span>user_event</span><span>dt</span><span>6</span><span class="ok">良好</span></div>
+            <div class="t-row"><span>dwd</span><span>order_detail</span><span>dt</span><span>8</span><span class="warn">关注</span></div>
+            <div class="t-row"><span>dim</span><span>product</span><span>dt</span><span>4</span><span class="ok">良好</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="alerts" class="page hidden">
+        <div class="card glass">
+          <div class="card-title">告警中心</div>
+          <ul class="list">
+            <li><span class="badge danger">严重</span> SLA 违约：dwd.order_detail 延迟 45min <span class="time">2分钟前</span></li>
+            <li><span class="badge warn">告警</span> 空值率超阈：ods.user_event null_rate=2.3% <span class="time">12分钟前</span></li>
+            <li><span class="badge info">提示</span> 分区异常：dim.product dt 缺失 <span class="time">1小时前</span></li>
+          </ul>
+        </div>
+      </section>
+
+      <section id="sla" class="page hidden">
+        <div class="card glass">
+          <div class="card-title">时效监控</div>
+          <div class="timeline">
+            <div class="tl-row">
+              <span>dwd.order_detail</span>
+              <div class="bar late" style="--progress:65%"></div>
+              <span class="time">延迟 45min</span>
+            </div>
+            <div class="tl-row">
+              <span>ods.user_event</span>
+              <div class="bar ok" style="--progress:90%"></div>
+              <span class="time">正常</span>
+            </div>
+            <div class="tl-row">
+              <span>dim.product</span>
+              <div class="bar warn" style="--progress:75%"></div>
+              <span class="time">轻微延迟</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="settings" class="page hidden">
+        <div class="card glass">
+          <div class="card-title">系统设置</div>
+          <div class="settings-grid">
+            <div>
+              <label>告警渠道</label>
+              <select>
+                <option>企业微信</option>
+                <option>钉钉</option>
+                <option>邮件</option>
+              </select>
+            </div>
+            <div>
+              <label>SLA 阈值</label>
+              <input type="number" value="30" />
+            </div>
+            <div>
+              <label>主题风格</label>
+              <select>
+                <option>霓虹暗黑</option>
+                <option>亮色简约</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <div id="ruleWizard" class="modal hidden">
+      <div class="modal-content glass">
+        <div class="modal-header">
+          <div class="title">新建数据质量规则</div>
+          <button class="icon-btn" id="closeWizard">✕</button>
+        </div>
+        <div class="steps">
+          <div class="step active">1 选择表</div>
+          <div class="step">2 字段与检查</div>
+          <div class="step">3 条件与阈值</div>
+          <div class="step">4 告警与SLA</div>
+        </div>
+        <div class="wizard-body">
+          <div class="wizard-row">
+            <label>库/表</label>
+            <input placeholder="如：dwd.order_detail" />
+          </div>
+          <div class="wizard-row">
+            <label>规则类型</label>
+            <select>
+              <option>分区完整性</option>
+              <option>空值率阈值</option>
+              <option>唯一性检查</option>
+              <option>行数波动</option>
+            </select>
+          </div>
+          <div class="wizard-row">
+            <label>阈值</label>
+            <input type="number" placeholder="例如：2% 或 100" />
+          </div>
+          <div class="wizard-actions">
+            <button class="secondary" id="prevStep">上一步</button>
+            <button class="primary" id="nextStep">下一步</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+  </html>
